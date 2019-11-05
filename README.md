@@ -1,12 +1,10 @@
-# NetLinx Module Implementation
-This is a description of a netlinx module template that is SNAPI-ish.  It implements rcMDL.axi (i.e. ip communication, que, poll, and misc helpers).
+# rcMDL (A NetLinx Module Implementation)
+This is a description of a netlinx module template to create a device driver that is SNAPI-ish.  It implements rcMDL.axi, a utility with helpers for: ip communication, que, poll, and other misc.
 
-The template is designed for either 232 or IP using dvDEV.NUMBER.
+The template is designed for either 232 or IP using dvDEV.NUMBER.  If your device does not support both, it is suggested you leave the plumbing in-place anyway.  Who knows, a 232 device could implement a wrapper for an IP dongle.
 
-If your device does not support both, it is suggested you leave the plumbing in-place anyway.
-
-# Module Documentation
-These items should be documented at the top of the netlinx module's axs file.
+# Module Documentation Suggestions
+These device-specific items should be documented at the top of the driver's axs file.
 
 ## Helpful Links
 * [Link to API](https://google.com)
@@ -24,7 +22,9 @@ These items should be documented at the top of the netlinx module's axs file.
 
 # Properties
 
-## Static properties (read-only)
+## Static Properties
+Static properties are read-only.
+
 ```
 ?DEV_INFO
 * Returns:
@@ -33,10 +33,12 @@ These items should be documented at the top of the netlinx module's axs file.
   DEV_INFO-ASSETTYPE,<value>
 ```
 
-## Dynamic properties
+## Dynamic Properties
+Dynamic properties provide getters and setters, so values can be updated at runtime.
+
 ```
 ?PROPERTIES
-* Returns all properties supported.
+* Returns all properties supported, with values.
 
 * Time delay properties (setters and getters)
   PROPERTY-POLL_TIME,<value>
@@ -56,6 +58,7 @@ These items should be documented at the top of the netlinx module's axs file.
 ```
 
 # SNAPI Compliance
+As noted above, the device driver implementation is SNAPI-ish.
 
 ## Heartbeat
 A heartbeat is enabled, but will not close the IP socket after 3 failed attempts.  Instead, DATA_INITIALIZED and DEVICE_COMMUNICATING are reset.
@@ -66,7 +69,7 @@ There is a polling routine that fires every POLL_TIME (usually 5 seconds), count
 If the device supports the PWR component, then the polling routine will poll for power until the device has replied as ON.  Then the polling cycle will continue from 2 to n.
 
 ## DEVICE_COMMUNICATING
-Any reply that is properly terminated with the correct delimiter (i.e. cr, cr/lf, etc) is considered true for DEVICE_COMMUNICATING.
+Any reply that is properly terminated with the correct delimiter (i.e. cr, cr/lf, etc) is considered true for DEVICE_COMMUNICATING and the channel will turn on.
 
 A poll counter is used to determine when 5 or more poll events did not receive a proper reply and DEVICE_COMMUNICATING is set to false.
 
@@ -83,13 +86,15 @@ The module does it's best to be SNAPI compliant.  There are however situations w
 * Commands are extended and provide more capabilities [#5].
 
 **Notes**
-* **#1** Levels that scale (i.e. 0-255 converting to 0-100) can produce jitter based upon some INT math problems. When the device is not connected, you probably won't see a problem, but when the device starts providing responses, jitter occurs and you can end up in a race condition.
+* **#1** Levels that scale (i.e. 0-255 converting to 0-100) can produce jitter based upon some INT math problems. When the device is not connected, you wouldn't see a problem, but when the device starts providing responses, jitter can occur and you can end up in a race condition.
 * **#2** Instead of ramping channels, you can simply use a PUSH-HOLD[x,repeat]-RELEASE instead.
 * **#3** This is a bit tricky to pull off, so it's best to not support it.
 * **#4** From the outside, you'll want to stick with PULSE.
 * **#5** Commands and parameters you wish SNAPI supported but doesn't.
 
 # Components
+Components are taken from the (SNAPI documentation)[https://adn.harmanpro.com/site_elements/resources/15073_1535413022/NDT-CAFEDUET.SNAPI.Components.Listeners_original.pdf].
+
 ## Module
 ```
 REINIT
@@ -114,8 +119,9 @@ PASSTHRU-<data>[,<alias>,<lDelay (in mS)>]
 ```
 
 ## Communication
+A new communication component was created to make IP communication easier to define and debug.
 
-Any IP communication is designed to keep the connection alive if necessary (i.e. polling or queued items to send).  If there is nothing else to send, the IP socket will close.  If a command needs to be sent, the socket will open (if closed) and que up the item to send with the online event.
+Any IP communication is designed to keep the connection alive if necessary (i.e. polling or queued items to send).  If there is nothing else to send, the IP socket will close.  If a command needs to be sent to the device, it will first be queued up, the socket will open (if closed), and sent with the online event.  When the que timeout expires, if the driver is not polling and if nothing is in the que to send, then the socket will be closed.  
 
 ```
 ?COMM
@@ -216,6 +222,8 @@ INPUTSELECT_ALIAS-<alias>
 Containers are components that support a 1 to many (count).  The first argument is usually the index (from 1 to Count).
 
 ## Volume
+Volume is wrapped around a container because it is more easily implemented in a driver for a DSP that can control many volumes.
+
 ```
 This module assigns these default values:
 * Vol Count: 10
@@ -262,6 +270,8 @@ VOL_LVL_RANGE-<index>,<snMin>,<snMax>
 ```
 
 ## Router
+Router is wrapped around a container because it is more easily implemented in a driver for a DSP that can control many routers.
+
 ```
 This module assigns these as default values:
 * Router Count: 1
@@ -292,17 +302,23 @@ ROUTE_MANY-<index>,<input>,"<outputList>"
 ```
 
 ## Dialer
+Dialer will be wrapped around a container because it is more easily implemented in a driver for a DSP that can control many VOIP and Telephone dialers.
+
 ```
 TBD...
 ```
 
 ## Source Selector
+Source selector will be wrapped around a container because it is more easily implemented in a driver for a DSP that can control many source selectors.
+
 ```
 TBD...
 ```
 
 
 ## Crosspoint Matrix
+Crosspoint matrix will be wrapped around a container because it is more easily implemented in a driver for a DSP that can control many crosspoint matrixes.
+
 ```
 TBD...
 ```
