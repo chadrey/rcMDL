@@ -97,7 +97,7 @@ The module does it's best to be SNAPI compliant.  There are however situations w
 * **#5** Commands and parameters you wish SNAPI supported but doesn't.
 
 # Components
-Components are taken from the (SNAPI documentation)[https://adn.harmanpro.com/site_elements/resources/15073_1535413022/NDT-CAFEDUET.SNAPI.Components.Listeners_original.pdf].
+Components are taken from the [SNAPI documentation](https://adn.harmanpro.com/site_elements/resources/15073_1535413022/NDT-CAFEDUET.SNAPI.Components.Listeners_original.pdf).
 
 ## Module
 ```
