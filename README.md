@@ -3,6 +3,10 @@ This is a description of a netlinx module template to create a device driver tha
 
 The template is designed for either 232 or IP using dvDEV.NUMBER.  If your device does not support both, it is suggested you leave the plumbing in-place anyway.  Who knows, a 232 device could implement a wrapper for an IP dongle.
 
+To keep things simple, a single port virtual interface is implemented and uses a concept of **containers**.  
+
+It has been decided to keep power and input select as a standard interface and not implement containers for them.  The interface is designed so a typical video display driver (VPJ, monitor, tv) will still look like a traditional SNAPI device.
+
 # Module Documentation Suggestions
 These device-specific items should be documented at the top of the driver's axs file.
 
@@ -222,7 +226,9 @@ INPUTSELECT_ALIAS-<alias>
 Containers are components that support a 1 to many (count).  The first argument is usually the index (from 1 to Count).
 
 ## Volume
-Volume is wrapped around a container because it is more easily implemented in a driver for a DSP that can control many volumes.
+Volume is wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many volumes.  
+
+All volume indexes will use the new COMMAND interface for the volume container.  For backwards compatability, the first volume index is also mapped to the traditional SNAPI channels (VOL_MUTE) and level (VOL_LVL).
 
 ```
 This module assigns these default values:
@@ -270,7 +276,9 @@ VOL_LVL_RANGE-<index>,<snMin>,<snMax>
 ```
 
 ## Router
-Router is wrapped around a container because it is more easily implemented in a driver for a DSP that can control many routers.
+Router is wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many routers.  
+
+It was determined to change he COMMAND API from `CIxOy` to `ROUTE-index,input,output`.  That made it simpler to utilize the SNAPI function handlers.
 
 ```
 This module assigns these as default values:
@@ -302,14 +310,14 @@ ROUTE_MANY-<index>,<input>,"<outputList>"
 ```
 
 ## Dialer
-Dialer will be wrapped around a container because it is more easily implemented in a driver for a DSP that can control many VOIP and Telephone dialers.
+Dialer will be wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many VOIP and Telephone dialers.
 
 ```
 TBD...
 ```
 
 ## Source Selector
-Source selector will be wrapped around a container because it is more easily implemented in a driver for a DSP that can control many source selectors.
+Source selector will be wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many source selectors.
 
 ```
 TBD...
@@ -317,7 +325,7 @@ TBD...
 
 
 ## Crosspoint Matrix
-Crosspoint matrix will be wrapped around a container because it is more easily implemented in a driver for a DSP that can control many crosspoint matrixes.
+Crosspoint matrix will be wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many crosspoint matrixes.
 
 ```
 TBD...
