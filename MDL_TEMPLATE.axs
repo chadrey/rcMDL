@@ -31,14 +31,6 @@ MODULE_NAME='MDL_TEMPLATE' (DEV vdvMAIN, DEV dvDEV)
    Ethernet - TCP at port 23 (IP Default: 192.168.0.2)
 
 
-   Programmer:
-  -----------------------------------
-   Company  - Reynoldson Control Inc.
-   Phone    - (402) 489-1220
-   Website  - www.ReynoldsonControl.com
-   Contact  - Chad Reynoldson
-
-
    Revisions:
   -----------------------------------
    Revision - 0.0.0  11/01/2019  CWR
@@ -47,23 +39,7 @@ MODULE_NAME='MDL_TEMPLATE' (DEV vdvMAIN, DEV dvDEV)
 
    Comments:
   -----------------------------------
-   - This module should come with a markdown file detailing the interface.
-   - This module is designed for either 232 or IP using dvDEV.NUMBER.
-     - If your device does not support both, I suggest you leave
-       the plumbing in-place anyway.
-   - Mandatory timelines: TL_QUE
-     - The driver is based upon commands flowing thru the que.
-   - Optional timelines:  TL_POLL, TL_IP_RECONNECT, TL_COUNTER_PWR
-     - The driver and rcMDL are designed to compile w/o them.
-   - SNAPi support has it's limits:
-     - All levels, both in and out, are raw values (not 0-255).
-     - Channels that ramp are not supported (i.e. VOL_UP,VOL_DN).
-     - Any channel listeners execute with the ON event only (i.e. you can only PULSE).
-     - Discrete channel controls are not supported (i.e. POWER_ON).
-   - Notes on device translation:
-     - When you activate a chn on vdvAPI, the event/state hits outside (not inside).
-     - When you check a chn's ON state, you need to use vdvMAIN.
-     - When you activate a lvl on vdvAPI, the event hits outside (not inside).
+   -
 
 
    Links:
@@ -272,8 +248,8 @@ VOLATILE _uCounter uCounterPwr
 
 //-- For rcMDL ---------------------------------------------
 VOLATILE CHAR    cDevNum[18]
-VOLATILE CHAR    bAPI_IS_HEX = FALSE
-VOLATILE CHAR    cMDL_NAME[] = 'MDL_TEMPLATE'
+CONSTANT CHAR    bAPI_IS_HEX = FALSE
+CONSTANT CHAR    cMDL_NAME[] = 'MDL_TEMPLATE'
 
 
 //==============================================================================
@@ -352,7 +328,7 @@ STACK_VAR
   FOR(nLoop=1; nLoop<=VOL_CNT; nLoop++) {
     uVol[nLoop].uLvl.snValue = uVol[nLoop].uLvl.snMin
     uVol[nLoop].uLvl.nBG     = 0
-    uVol[nLoop].uLvl.bMuted  = 255
+    uVol[nLoop].uLvl.bMuted  = FALSE
   }
 
 //-- Router --------
@@ -629,17 +605,17 @@ DEFINE_FUNCTION routeAudio (INTEGER nIdx, INTEGER nInp, INTEGER nOut)
 //-----------------------------------------------------------
 // Parse reply.
 //-----------------------------------------------------------
-DEFINE_FUNCTION CHAR parseReply ()
+DEFINE_FUNCTION CHAR parseReply (CHAR cReply[])
 {
   SELECT
   {
-    ACTIVE(FIND_STRING(uBuff.cReply,"'OK'",1)) :
+    ACTIVE(FIND_STRING(cReply,"'OK'",1)) :
     {
     }
-    ACTIVE(FIND_STRING(uBuff.cReply,"'ERR'",1)) :
+    ACTIVE(FIND_STRING(cReply,"'ERR'",1)) :
     {
     }
-    ACTIVE(FIND_STRING(uBuff.cReply,"'WAIT'",1)) :
+    ACTIVE(FIND_STRING(cReply,"'WAIT'",1)) :
     {
     }
   //----------------
@@ -660,8 +636,8 @@ DEFINE_FUNCTION CHAR parseReply ()
 
       SELECT
       {
-        ACTIVE(FIND_STRING(uBuff.cReply,'PON',1)) : uState.bPwr = TRUE
-        ACTIVE(FIND_STRING(uBuff.cReply,'POF',1)) : uState.bPwr = FALSE
+        ACTIVE(FIND_STRING(cReply,'PON',1)) : uState.bPwr = TRUE
+        ACTIVE(FIND_STRING(cReply,'POF',1)) : uState.bPwr = FALSE
       }
 
       IF(bPwrPrev <> uState.bPwr) {
@@ -680,8 +656,8 @@ DEFINE_FUNCTION CHAR parseReply ()
 
       SELECT
       {
-        ACTIVE(FIND_STRING(uBuff.cReply,'HDMI1',1)) : { uState.nInpSel = 1  uState.cInpSel = 'HDMI1' }
-        ACTIVE(FIND_STRING(uBuff.cReply,'HDMI2',1)) : { uState.nInpSel = 2  uState.cInpSel = 'HDMI2' }
+        ACTIVE(FIND_STRING(cReply,'HDMI1',1)) : { uState.nInpSel = 1  uState.cInpSel = 'HDMI1' }
+        ACTIVE(FIND_STRING(cReply,'HDMI2',1)) : { uState.nInpSel = 2  uState.cInpSel = 'HDMI2' }
         ACTIVE(1) : { uState.nInpSel = 0  uState.cInpSel = 'UNKNOWN' }
       }
 
@@ -699,7 +675,7 @@ DEFINE_FUNCTION CHAR parseReply ()
 
       nIdx = 1
       snValuePrev = uVol[nIdx].uLvl.snValue
-      snValue = ATOI (uBuff.cReply)
+      snValue = ATOI (cReply)
 
       SELECT
       {
@@ -722,8 +698,8 @@ DEFINE_FUNCTION CHAR parseReply ()
 
       SELECT
       {
-        ACTIVE(FIND_STRING(uBuff.cReply,'ON' ,1)) : uVol[nIdx].uLvl.bMuted = TRUE
-        ACTIVE(FIND_STRING(uBuff.cReply,'OFF',1)) : uVol[nIdx].uLvl.bMuted = FALSE
+        ACTIVE(FIND_STRING(cReply,'ON' ,1)) : uVol[nIdx].uLvl.bMuted = TRUE
+        ACTIVE(FIND_STRING(cReply,'OFF',1)) : uVol[nIdx].uLvl.bMuted = FALSE
       }
 
       IF(bMutedPrev <> uVol[nIdx].uLvl.bMuted) {
@@ -770,17 +746,17 @@ DEFINE_FUNCTION CHAR parseReply ()
 //-----------------------------------------------------------
 // Parse buffer.
 //-----------------------------------------------------------
-DEFINE_FUNCTION parseBuffer ()
+DEFINE_FUNCTION parseBuffer (CHAR cBuff[])
 STACK_VAR
   INTEGER nCount
 {
-  WHILE(FIND_STRING(uBuff.cBuff,"13",1)) {
+  WHILE(FIND_STRING(cBuff,"13",1)) {
   //-- Get a complete reply --------
-    uBuff.cReply = REMOVE_STRING(uBuff.cBuff,"13",1)
+    uBuff.cReply = REMOVE_STRING(cBuff,"13",1)
 
   //-- Is cReply big enough? -------
-    IF((LENGTH_STRING(uBuff.cReply) = 0) && FIND_STRING(uBuff.cBuff,"13",1)) {
-      uBuff.cBuff = ""
+    IF((LENGTH_STRING(uBuff.cReply) = 0) && FIND_STRING(cBuff,"13",1)) {
+      cBuff = ""
       log (AMX_ERROR, 'parseBuffer()', "'cReply NOT big enough!  cBuff being reset!'")
       BREAK;
     }
@@ -789,14 +765,16 @@ STACK_VAR
     IF(!LENGTH_STRING(uBuff.cReply))
       BREAK;
 
+  //-- Somebody replied ------------
+    ON[vdvAPI,DEVICE_COMMUNICATING]
+
   //-- Echo ------------------------
     IF(uComm.bEchoRX) {
       echoRx ("uQue.uLastItem.cAlias", "uBuff.cReply")
     }
 
   //-- Parse this reply ------------
-    IF(parseReply () = TRUE) {
-      ON[vdvAPI,DEVICE_COMMUNICATING]
+    IF(parseReply (uBuff.cReply) = TRUE) {
       uComm.nPollCounter = 0
       nCount++
     }
@@ -903,7 +881,6 @@ DATA_EVENT[dvDEV]
 
   //-- Polling ---------------------
     IF(uProp.nPollDelay) {
-      sendHeartbeat ()
       pollStart ()
     }
 
@@ -958,7 +935,7 @@ DATA_EVENT[dvDEV]
   {
     uBuff.cBuff = "uBuff.cBuff,DATA.TEXT"
 
-    parseBuffer()
+    parseBuffer(uBuff.cBuff)
   }
 }
 

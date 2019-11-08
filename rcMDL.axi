@@ -388,7 +388,10 @@ STACK_VAR
     TIMELINE_KILL(TL_QUE)
 
   uQue.uLastItem = uItemBlank
+
+#IF_DEFINED TL_COUNTER_PWR
   uCounterPwr    = uCounterBlank
+#END_IF
 }
 
 
