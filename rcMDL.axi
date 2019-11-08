@@ -35,6 +35,9 @@ PROGRAM_NAME='rcMDL'
 
    Revisions:
   -----------------------------------
+   Revision - 0.0.1  11/08/2019  CWR
+   - Now you can compile without the _uLvl helpers.
+
    Revision - 0.0.0  11/01/2019  CWR
    - Initial creation.
 
@@ -582,41 +585,42 @@ STACK_VAR
 //!-------------------------------------------------------------------------------------------------------------------
 //---------------------------------- Level helpers -------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------------------
-
-//-----------------------------------------------------------
-// Set uLvl for snValue.
-//-----------------------------------------------------------
-DEFINE_FUNCTION CHAR lvlSet (_uLvl uLvl, SINTEGER snValue)
-{
-  IF(snValueInRange (snValue, uLvl.snMin, uLvl.snMax)) {
-    uLvl.snValue = snValue
-    uLvl.nBG     = snValueToBG (snValue, uLvl.snMin, uLvl.snMax)
-    RETURN (TRUE)
-  }
-
-  RETURN (FALSE)
-}
-
-//-----------------------------------------------------------
-// Inc/Dec uLvl within range.
-//-----------------------------------------------------------
-DEFINE_FUNCTION lvlStep (_uLvl uLvl, SINTEGER snStep)
-{
-  uLvl.snValue = uLvl.snValue + snStep
-
-  IF(snStep > 0)        // Raising
+#IF_DEFINED _uLvl
+  //-----------------------------------------------------------
+  // Set uLvl for snValue.
+  //-----------------------------------------------------------
+  DEFINE_FUNCTION CHAR lvlSet (_uLvl uLvl, SINTEGER snValue)
   {
-    IF(uLvl.snValue > uLvl.snMax)
-      uLvl.snValue = uLvl.snMax
-  }
-  ELSE IF(snStep < 0)   // Lowering
-  {
-    IF((uLvl.snValue < uLvl.snMin) || (uLvl.snValue > uLvl.snMax))
-      uLvl.snValue = uLvl.snMin
+    IF(snValueInRange (snValue, uLvl.snMin, uLvl.snMax)) {
+      uLvl.snValue = snValue
+      uLvl.nBG     = snValueToBG (snValue, uLvl.snMin, uLvl.snMax)
+      RETURN (TRUE)
+    }
+
+    RETURN (FALSE)
   }
 
-  uLvl.nBG = snValueToBG (uLvl.snValue, uLvl.snMin, uLvl.snMax)
-}
+  //-----------------------------------------------------------
+  // Inc/Dec uLvl within range.
+  //-----------------------------------------------------------
+  DEFINE_FUNCTION lvlStep (_uLvl uLvl, SINTEGER snStep)
+  {
+    uLvl.snValue = uLvl.snValue + snStep
+
+    IF(snStep > 0)        // Raising
+    {
+      IF(uLvl.snValue > uLvl.snMax)
+        uLvl.snValue = uLvl.snMax
+    }
+    ELSE IF(snStep < 0)   // Lowering
+    {
+      IF((uLvl.snValue < uLvl.snMin) || (uLvl.snValue > uLvl.snMax))
+        uLvl.snValue = uLvl.snMin
+    }
+
+    uLvl.nBG = snValueToBG (uLvl.snValue, uLvl.snMin, uLvl.snMax)
+  }
+#END_IF
 
 //-----------------------------------------------------------
 // Create a bargraph value from snValue.
@@ -823,7 +827,7 @@ STACK_VAR
 DEFINE_START
 
 //-- Print version -----------------------------------------
-SEND_STRING 0,"'  Implementing rcMDL (',__LDATE__,'@',__TIME__,') v0.0.0'"
+SEND_STRING 0,"'  Implementing rcMDL (',__LDATE__,'@',__TIME__,') v0.0.1'"
 
 
 //==============================================================================

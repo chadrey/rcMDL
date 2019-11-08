@@ -1,0 +1,4 @@
+# ignore all compiled NetLinx files
+*.src
+*.tkn
+*.tko
