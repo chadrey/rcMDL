@@ -147,6 +147,7 @@ STRUCTURE _uRtr
   INTEGER  nAudOut[RTR_OUT_MAX]
   INTEGER  nInpCnt
   INTEGER  nOutCnt
+  CHAR     bVidOutMute[RTR_OUT_MAX]
 }
 
 
@@ -178,6 +179,7 @@ STRUCTURE _uProp
 //-- Device Communication ----------
 STRUCTURE _uComm
 {
+  CHAR    bAuthorized
   CHAR    cConnectionState[15]
   CHAR    bConnected
 
@@ -288,6 +290,13 @@ DEFINE_FUNCTION sendHeartbeat ()
 }
 
 //----------------------------------------------------------
+// Send initialization.
+//----------------------------------------------------------
+DEFINE_FUNCTION sendInitialization ()
+{
+}
+
+//----------------------------------------------------------
 // Initialize module for the first time.
 //----------------------------------------------------------
 DEFINE_FUNCTION moduleInit ()
@@ -365,6 +374,14 @@ STACK_VAR
 
 //-- 232 Restart -------------------
   IF(DEVICE_ID(dvDEV) && (dvDEV.NUMBER > 0)) {
+  //-- Initilization ---------------
+    sendInitialization ()
+
+  //-- Heartbeat -------------------
+    sendHeartbeat  ()
+    heartbeatStart ()
+
+  //-- Polling ---------------------
     IF(uProp.nPollDelay) {
       pollStart ()
     }
@@ -597,6 +614,49 @@ DEFINE_FUNCTION routeAudio (INTEGER nIdx, INTEGER nInp, INTEGER nOut)
   sendTo ("'ROUTE_AUDIO-',ITOA(nIdx)", "'ROUTE_AUDIO-',ITOA(nInp),',',ITOA(nOut),13", 200)
 }
 
+//----------------------------------------------------------
+// Router's video output mute.
+//----------------------------------------------------------
+DEFINE_FUNCTION rtrVidoutMuteOn (INTEGER nIdx, INTEGER nOut)
+{
+  IF((nIdx = 0) || (nIdx > RTR_CNT))
+    RETURN;
+
+  IF((nOut = 0) || (nOut > uRtr[nIdx].nOutCnt))
+    RETURN;
+
+  uRtr[nIdx].bVidOutMute[nOut] = TRUE
+  SEND_COMMAND vdvAPI,"'RTR_VIDOUT_MUTE-',ITOA(nIdx),',',ITOA(nOut),',ON'"
+
+  sendTo ("'RTR_VIDOUT_MUTE-',ITOA(nIdx)", "'RTR_VIDOUT_MUTE-',ITOA(nOut),',ON'", 200)
+}
+
+DEFINE_FUNCTION rtrVidoutMuteOff (INTEGER nIdx, INTEGER nOut)
+{
+  IF((nIdx = 0) || (nIdx > RTR_CNT))
+    RETURN;
+
+  IF((nOut = 0) || (nOut > uRtr[nIdx].nOutCnt))
+    RETURN;
+
+  uRtr[nIdx].bVidOutMute[nOut] = FALSE
+  SEND_COMMAND vdvAPI,"'RTR_VIDOUT_MUTE-',ITOA(nIdx),',',ITOA(nOut),',OFF'"
+
+  sendTo ("'RTR_VIDOUT_MUTE-',ITOA(nIdx)", "'RTR_VIDOUT_MUTE-',ITOA(nOut),',OFF'", 200)
+}
+
+DEFINE_FUNCTION rtrVidoutMuteToggle (INTEGER nIdx, INTEGER nOut)
+{
+  IF((nIdx = 0) || (nIdx > RTR_CNT))
+    RETURN;
+
+  IF((nOut = 0) || (nOut > uRtr[nIdx].nOutCnt))
+    RETURN;
+
+  IF(uRtr[nIdx].bVidOutMute[nOut])  rtrVidoutMuteOff (nIdx, nOut)
+  ELSE                              rtrVidoutMuteOn  (nIdx, nOut)
+}
+
 
 //!-------------------------------------------------------------------------------------------------------------------
 //---------------------------------- Parser helpers ------------------------------------------------------------------
@@ -731,6 +791,12 @@ DEFINE_FUNCTION CHAR parseReply (CHAR cReply[])
           SEND_COMMAND vdvAPI,"'ROUTE-',ITOA(nIdx),',',ITOA(nInp),',',ITOA(nOut)"
         }
       }
+    }
+  //----------------
+  // Rtr VidOut Mute
+  //----------------
+    ACTIVE(FIND_STRING(uQue.uLastItem.cAlias,"'?ROUTE'",1)) :
+    {
     }
   //----------------
   // Unhandled
@@ -875,22 +941,29 @@ DATA_EVENT[dvDEV]
       queReset ()
     }
 
-  //-- Heartbeat -------------------
-    sendHeartbeat  ()
-    heartbeatStart ()
+    WAIT 10 'DELAY FOR LOGIN' {
+    //-- Initilization -------------
+      sendInitialization ()
 
-  //-- Polling ---------------------
-    IF(uProp.nPollDelay) {
-      pollStart ()
+    //-- Heartbeat -----------------
+      sendHeartbeat  ()
+      heartbeatStart ()
+
+    //-- Polling -------------------
+      IF(uProp.nPollDelay) {
+        pollStart ()
+      }
+
+    //-- Que -----------------------
+      queCheck ()
     }
-
-  //-- Que -------------------------
-    queCheck ()
   }
   OFFLINE :
   {
     uComm.cConnectionState = 'OFFLINE'
     uComm.bConnected  = FALSE
+    uComm.bAuthorized = FALSE
+    CANCEL_WAIT 'DELAY FOR LOGIN'
 
   //-- Lost comm -------------------
     OFF[vdvAPI,DEVICE_COMMUNICATING]
@@ -933,9 +1006,16 @@ DATA_EVENT[dvDEV]
   }
   STRING :
   {
-    uBuff.cBuff = "uBuff.cBuff,DATA.TEXT"
-
-    parseBuffer(uBuff.cBuff)
+    IF(FIND_STRING(DATA.TEXT,"'Password:'",1)) {
+      SEND_STRING DATA.DEVICE,"uProp.uIP.Password,13"
+    }
+    ELSE IF(FIND_STRING(DATA.TEXT,"'Login User',13,10",1)) {
+      uComm.bAuthorized = TRUE
+    }
+    ELSE {
+      uBuff.cBuff = "uBuff.cBuff,DATA.TEXT"
+      parseBuffer(uBuff.cBuff)
+    }
   }
 }
 
@@ -1305,6 +1385,39 @@ DATA_EVENT[vdvAPI]
               CASE 'ROUTE_AUDIO_MANY' : routeAudio (nIdx, nInp, nOut)
               CASE 'ROUTE_MANY'       : route (nIdx, nInp, nOut)
             }
+          }
+        }
+      }
+    //------------------------------
+    //-- Router VidOut Mute
+    //------------------------------
+      CASE '?RTR_VIDOUT_MUTE' : {
+        IF(nIdx && (nIdx <= RTR_CNT)) {
+          STACK_VAR INTEGER nOut
+
+          nOut = ATOI(cParam[2])
+
+          IF(nOut && (nOut <= uRtr[nIdx].nOutCnt)) {
+            SWITCH(uRtr[nIdx].bVidOutMute[nOut])
+            {
+              CASE TRUE  : SEND_COMMAND vdvAPI,"'RTR_VIDOUT_MUTE-',ITOA(nIdx),',',ITOA(nOut),',ON'"
+              CASE FALSE : SEND_COMMAND vdvAPI,"'RTR_VIDOUT_MUTE-',ITOA(nIdx),',',ITOA(nOut),',OFF'"
+              DEFAULT    : SEND_COMMAND vdvAPI,"'RTR_VIDOUT_MUTE-',ITOA(nIdx),',',ITOA(nOut),',UNKNOWN'"
+            }
+          }
+        }
+      }
+      CASE 'RTR_VIDOUT_MUTE' : {
+        IF(nIdx && (nIdx <= RTR_CNT)) {
+          STACK_VAR INTEGER nOut
+
+          nOut = ATOI(cParam[2])
+
+          SWITCH(UPPER_STRING(cParam[3]))
+          {
+            CASE 'ON'  : rtrVidoutMuteOn  (nIdx, nOut)
+            CASE 'OFF' : rtrVidoutMuteOff (nIdx, nOut)
+            CASE 'TGL' : rtrVidoutMuteToggle (nIdx, nOut)
           }
         }
       }

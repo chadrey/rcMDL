@@ -3,7 +3,7 @@ This is a description of a netlinx module template to create a device driver tha
 
 The template is designed for either 232 or IP using dvDEV.NUMBER.  If your device does not support both, it is suggested you leave the plumbing in-place anyway.  Who knows, a 232 device could implement a wrapper for an IP dongle.
 
-To keep things simple, a single port virtual interface is implemented and uses a concept of **containers**.  
+To keep things simple, a single port virtual interface is implemented and uses a concept of **containers**.
 
 It has been decided to keep power and input select as a standard interface and not implement containers for them.  The interface is designed so a typical video display driver (VPJ, monitor, tv) will still look like a traditional SNAPI device.
 
@@ -125,7 +125,7 @@ PASSTHRU-<data>[,<alias>,<lDelay (in mS)>]
 ## Communication
 A new communication component was created to make IP communication easier to define and debug.
 
-Any IP communication is designed to keep the connection alive if necessary (i.e. polling or queued items to send).  If there is nothing else to send, the IP socket will close.  If a command needs to be sent to the device, it will first be queued up, the socket will open (if closed), and sent with the online event.  When the que timeout expires, if the driver is not polling and if nothing is in the que to send, then the socket will be closed.  
+Any IP communication is designed to keep the connection alive if necessary (i.e. polling or queued items to send).  If there is nothing else to send, the IP socket will close.  If a command needs to be sent to the device, it will first be queued up, the socket will open (if closed), and sent with the online event.  When the que timeout expires, if the driver is not polling and if nothing is in the que to send, then the socket will be closed.
 
 ```
 ?COMM
@@ -154,6 +154,8 @@ IP_CLOSE
 ```
 
 ## Power
+This device supports power on and off.
+
 ```
 With support for these SNAPI channels:
   * POWER
@@ -187,8 +189,11 @@ COOLDOWN-<value>
 ```
 
 ## Input Selection
+This device supports local input selection.
+
+
 ```
-This module contains these source indexes and aliases:
+The module contains these source indexes and aliases:
 * 1, HDMI1
 * 2, HDMI2
 
@@ -222,16 +227,25 @@ INPUTSELECT_ALIAS-<alias>
     * displayName: friendly helper (i.e. Side,Front, Back)
 ```
 
+## Picture Mute
+This device supports local picture mute.
+
+```
+TBD...
+```
+
 # Containers
 Containers are components that support a 1 to many (count).  The first argument is usually the index (from 1 to Count).
 
+Containers are simply a collection of individual components, but wrapped around an API that supports 1 to many.  This way a single-ported virtual interface can more easily be implemented, over a multi-ported virtual interface.
+
 ## Volume
-Volume is wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many volumes.  
+Volume is wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many volumes.
 
 All volume indexes will use the new COMMAND interface for the volume container.  For backwards compatability, the first volume index is also mapped to the traditional SNAPI channels (VOL_MUTE) and level (VOL_LVL).
 
 ```
-This module assigns these default values:
+The module can assign these default values:
 * Vol Count: 10
 * Vol Min: -60
 * Vol Max:  20
@@ -276,12 +290,12 @@ VOL_LVL_RANGE-<index>,<snMin>,<snMax>
 ```
 
 ## Router
-Router is wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many routers.  
+Router is wrapped inside a container because it is more easily implemented in a driver for a DSP that can control many routers.
 
 It was determined to change he COMMAND API from `CIxOy` to `ROUTE-index,input,output`.  That made it simpler to utilize the SNAPI function handlers.
 
 ```
-This module assigns these as default values:
+The module can assign these as default values:
 * Router Count: 1
 * Maximum Input Count: 40
 * Maximum Output Count: 40
@@ -298,6 +312,14 @@ ROUTER_SIZE-<index>,<InputCnt>,<OutputCnt>
 * Assigns the input/output count:
 * The counts cannot exceed the module maximums.
 
+?ROUTE_VIDEO-<index>
+?ROUTE_AUDIO-<index>
+?ROUTE-<index>
+* Returns (1 to router output count):
+  * ?ROUTE_VIDEO-<index>,<inp>,<out>
+  * ?ROUTE_AUDIO-<index>,<inp>,<out>
+  * ?ROUTE-<index>,<inp>,<out>
+
 ROUTE_VIDEO-<index>,<input>,<output>
 ROUTE_AUDIO-<index>,<input>,<output>
 ROUTE-<index>,<input>,<output>
@@ -307,6 +329,13 @@ ROUTE_VIDEO_MANY-<index>,<input>,"<outputList>"
 ROUTE_AUDIO_MANY-<index>,<input>,"<outputList>"
 ROUTE_MANY-<index>,<input>,"<outputList>"
 * Routes the input to the many outputs for the signal type.
+
+?RTR_VIDOUT_MUTE-<index>,<out>
+* Returns:
+  * RTR_VIDOUT_MUTE-<index>,<out>,<ON,OFF,UNKNOWN>
+
+RTR_VIDOUT_MUTE-<index>,<out>,<ON,OFF,TGL>
+* Set the router's video output mute on or off.
 ```
 
 ## Dialer
